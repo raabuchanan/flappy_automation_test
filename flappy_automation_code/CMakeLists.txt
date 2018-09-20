@@ -17,8 +17,17 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_library(${PROJECT_NAME}_library
+  src/FlappyNavigation.cpp
+  src/PipeGapTracker.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}_library
+  ${catkin_LIBRARIES}
+)
+
 add_executable(${PROJECT_NAME}_node src/flappy_automation_code.cpp)
 
 target_link_libraries(${PROJECT_NAME}_node
-   ${catkin_LIBRARIES}
+  ${PROJECT_NAME}_library
 )

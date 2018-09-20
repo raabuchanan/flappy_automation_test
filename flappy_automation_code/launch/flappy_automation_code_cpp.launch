@@ -1,6 +1,10 @@
 <launch>
   <!-- launch script for cpp automation of flappy  -->
 
-  <node name="flappy_automation_code" pkg="flappy_automation_code" type="flappy_automation_code_node" output="screen" />
+  <node name="flappy_automation_code" pkg="flappy_automation_code" type="flappy_automation_code_node" output="screen">
+  <param name="p_gain" type="double" value="1.0" />
+  <param name="d_gain" type="double" value="15.0" />
+  <param name="i_gain" type="double" value="0.01" />
+  </node> 
   <node name="flappy_main_game" pkg="flappy_main_game" type="flappy.py" output="screen" />
 </launch>
