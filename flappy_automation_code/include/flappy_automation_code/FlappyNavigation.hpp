@@ -7,8 +7,9 @@
 #include "sensor_msgs/LaserScan.h"
 #include "geometry_msgs/Vector3.h"
 #include <iostream>
-
 #include <mutex>
+#include <math.h> 
+
 namespace flappy_navigation {
 
 
@@ -27,7 +28,8 @@ class FlappyNavigation {
     //Subscriber for laser scan
     ros::Subscriber sub_laser_scan_;
 
-    PipeGapTracker tracker_;
+    PipeGapTracker first_gap_;
+    PipeGapTracker second_gap_;
 
     ros::Timer flappy_navigation_timer_;
     ros::Duration flappy_navigation_duration_;
@@ -41,6 +43,8 @@ class FlappyNavigation {
     double i_gain_;
     double d_gain_;
     double prev_error_;
+    double max_x_vel_;
+    double angle_resolution_;
 
     std::vector<std::vector<double>> depth_map_;
 

@@ -22,9 +22,11 @@ FlappyNavigation::~FlappyNavigation() {
 
 void FlappyNavigation::readParameters(){
 
-	node_handle_.param("p_gain", p_gain_, 1.0);
-	node_handle_.param("d_gain", d_gain_, 15.0);
-	node_handle_.param("i_gain", i_gain_, 0.001);
+    // Load parameters from ros server
+	node_handle_.param("/flappy_automation_code/p_gain", p_gain_, 1.0);
+	node_handle_.param("/flappy_automation_code/d_gain", d_gain_, 15.0);
+	node_handle_.param("/flappy_automation_code/i_gain", i_gain_, 0.001);
+    node_handle_.param("/flappy_automation_code/max_x_vel", max_x_vel_, 0.5);
 }
 
 
@@ -38,23 +40,23 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
     double dt = 1 / 30.0;// ros::Time::now().toSec() - last_vel_time_;
     last_vel_time_ = ros::Time::now().toSec();
 
-    //positionUpdate(0.0, msg->y * dt);
-    tracker_.processUpdate(msg->x * dt, msg->y * dt);
+    positionUpdate(0.0, msg->y * dt);
+    first_gap_.processUpdate(-msg->x * dt, msg->y * dt);
+    second_gap_.processUpdate(-msg->x * dt, msg->y * dt);
 
-    // std::cout << "dt " << dt << " " << std::endl;
+    double proportional_error_ = y_goal_;
+    double y_cmd =  p_gain_*proportional_error_ + d_gain_*(proportional_error_ - prev_error_ ) + i_gain_*integral_error_;
+    integral_error_ += proportional_error_;
+    prev_error_ = proportional_error_;
 
-    double displacement = y_goal_;
+    if (y_goal_ == 0.0) y_cmd = (0.0 - msg->y) / dt; // zero y velocity
 
-    integral_error_ += displacement;
-
-    double y_cmd =  p_gain_*displacement + d_gain_*(displacement - prev_error_ ) + i_gain_*integral_error_;
-
-    // std::cout << "P error " << displacement << " D error " << displacement - prev_error_ << " I error " << integral_error_ << std::endl;
-
-    prev_error_ = displacement;
+    double desired_vel = 1 / abs(proportional_error_); //Move slower when further from goal
+    if(desired_vel > max_x_vel_) desired_vel = max_x_vel_;
+    double x_cmd = (desired_vel - msg->x) / dt;
 
     geometry_msgs::Vector3 acc_cmd;
-    acc_cmd.x = 0.0;
+    acc_cmd.x = x_cmd; //Three taps on the right arrow key
     acc_cmd.y = y_cmd;
     pub_acel_cmd_.publish(acc_cmd);
 
@@ -64,20 +66,14 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
 }
 
 void FlappyNavigation::positionUpdate(double x_displacement, double y_displacement){
-
     y_pos_ += y_displacement;
-    std::cout << "Bird position updated " << x_pos_ << " " << y_pos_ << std::endl;
 }
 
 void FlappyNavigation::laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
   int num_scans = (int)(abs(msg->angle_max - msg->angle_min)/msg->angle_increment) + 1;
-//   std::cout << "Received " << num_scans << " laser scans" << std::endl;
-
   std::vector<std::vector<double>> depth_line;
   for(int i = 0; i < num_scans; i++){
-
-    //if(msg->intensities[i] == 0.0) continue;
 
     std::vector<double> depth_measurement; //Laser or Robot centric?
     double x_pos = msg->ranges[i] * cos(msg->angle_min + i*msg->angle_increment);
@@ -86,11 +82,9 @@ void FlappyNavigation::laserScanCallback(const sensor_msgs::LaserScan::ConstPtr&
     depth_measurement.push_back(y_pos);
     depth_measurement.push_back(msg->intensities[i]);
 
-   // std::cout << "Point measurement " << x_pos << " " << y_pos << " " << msg->intensities[i] << std::endl;
-
     depth_line.push_back(depth_measurement);
   }
-
+    angle_resolution_ = msg->angle_increment;
 
     map_mtx_.lock(); // necessary?
     depth_map_.clear();
@@ -134,9 +128,9 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
     if(x_best == 0.0){
         std::cout << "Could not fit line" << std::endl;
         return;
-    } else {
-        std::cout << "Line fit to " << x_best << std::endl;
     }
+
+
 
 
     std::vector<double> y_gaps;
@@ -147,21 +141,32 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
         if(x_best - point[0] > inlier_thresh) continue; //floor or ceiling
 
         if(point[0] - x_best > inlier_thresh){ // gap
-            std::cout << "Gap detected at " << point[0] << " " << point[1] << std::endl;
+            // std::cout << "Gap detected at " << point[0] << " " << point[1] << std::endl;
             y_gaps.push_back(point[1]);
         }
     }
 
-    
-    for(int j = 0; j < y_gaps.size(); j++){
-        tracker_.measurementUpdate(x_best, y_gaps[j]);
+    //  std::cout << "x_best " << x_best << " " << first_gap_.getXpos() << " " << second_gap_.getXpos() << std::endl;
+
+    if(!first_gap_.getInitialization()){
+        first_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
+    } else if (abs(x_best - first_gap_.getXpos()) > abs(x_best - second_gap_.getXpos()) ) {
+        second_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
+    } else {
+        first_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
     }
 
+    if(first_gap_.getXpos() <= second_gap_.getXpos()){
+        y_goal_ = first_gap_.getYpos();
+        if(first_gap_.getXpos() < 0.2 || first_gap_.getXpos() > 1.5) y_goal_ = 0.0;
+        std::cout << "Tracking First Gap " << first_gap_.getXpos() << " " << first_gap_.getYpos() << std::endl;
+    } else {
+        y_goal_ = second_gap_.getYpos();
+        if(second_gap_.getXpos() < 0.2 || second_gap_.getXpos() > 1.5) y_goal_ = 0.0;
+        std::cout << "Tracking Second Gap " << second_gap_.getXpos() << " " << second_gap_.getYpos() << std::endl;
+    }
 
     
-    y_goal_ = tracker_.getYpos(); // keep centered
-
-    std::cout << "y_goal_ " << y_goal_ << std::endl;
 
 }
 
