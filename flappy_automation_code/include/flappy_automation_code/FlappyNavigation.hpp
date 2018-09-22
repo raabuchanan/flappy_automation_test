@@ -8,7 +8,8 @@
 #include "geometry_msgs/Vector3.h"
 #include <iostream>
 #include <mutex>
-#include <math.h> 
+#include <math.h>
+#include <ros/console.h>
 
 namespace flappy_navigation {
 
@@ -43,7 +44,7 @@ class FlappyNavigation {
     double i_gain_;
     double d_gain_;
     double prev_error_;
-    double max_x_vel_;
+    double x_vel_;
     double angle_resolution_;
 
     std::vector<std::vector<double>> depth_map_;
