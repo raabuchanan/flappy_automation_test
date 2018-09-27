@@ -38,12 +38,21 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
     }
 
     //TODO
-    double dt = 30.0;//ros::Time::now().toSec() - last_vel_time_;
+    double dt = ros::Time::now().toSec() - last_vel_time_;
     last_vel_time_ = ros::Time::now().toSec();
 
-    positionUpdate(0.0, msg->y * dt);
-    first_gap_.processUpdate(-msg->x * dt, msg->y * dt);
-    second_gap_.processUpdate(-msg->x * dt, msg->y * dt);
+    first_gap_.processUpdate(-msg->x * dt, -msg->y * dt);
+    second_gap_.processUpdate(-msg->x * dt, -msg->y * dt);
+
+    if(first_gap_.getXpos() <= second_gap_.getXpos()){
+        y_goal_ = first_gap_.getYpos();
+        if(first_gap_.getXpos() < 0.25 || first_gap_.getXpos() > 1.5) y_goal_ = 0.0;
+        ROS_INFO_STREAM("Tracking First Gap " << first_gap_.getXpos() << " " << first_gap_.getYpos());
+    } else {
+        y_goal_ = second_gap_.getYpos();
+        if(second_gap_.getXpos() < 0.25 || second_gap_.getXpos() > 1.5) y_goal_ = 0.0;
+        ROS_INFO_STREAM("Tracking Second Gap " << second_gap_.getXpos() << " " << second_gap_.getYpos());
+    }
 
     double proportional_error_ = y_goal_;//Birdy-centric
     double y_cmd =  p_gain_*proportional_error_ + d_gain_*(proportional_error_ - prev_error_ ) + i_gain_*integral_error_;
@@ -52,8 +61,12 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
 
     if (y_goal_ == 0.0) y_cmd = (0.0 - msg->y) / dt; // zero y velocity
 
-    double desired_vel = x_vel_;// 1 / abs(proportional_error_); //Move slower when further from goal
+    double desired_vel = x_vel_;
+    if (proportional_error_ <= 0.01){
+        desired_vel = x_vel_ / abs(proportional_error_); // move slower if more than 1m away
+    }
     if(desired_vel > x_vel_) desired_vel = x_vel_;
+
     double x_cmd = (desired_vel - msg->x) / dt;
 
     geometry_msgs::Vector3 acc_cmd;
@@ -123,8 +136,6 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
     if(x_best == 0.0){
         ROS_WARN("Could not fit line");
         return;
-    } else {
-        ROS_INFO_STREAM("Line fit at " << x_best);
     }
 
     std::vector<double> y_gaps;
@@ -135,7 +146,7 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
         if(x_best - point[0] > inlier_thresh) continue; //floor or ceiling
 
         if(point[0] - x_best > inlier_thresh){ // gap
-            ROS_INFO_STREAM("Gap detected at " << point[0] << " " << point[1]);
+            // ROS_INFO_STREAM("Gap detected at " << point[0] << " " << point[1]);
             y_gaps.push_back(point[1]);
         }
     }
@@ -146,16 +157,6 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
         second_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
     } else {
         first_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
-    }
-
-    if(first_gap_.getXpos() <= second_gap_.getXpos()){
-        y_goal_ = first_gap_.getYpos();
-        if(first_gap_.getXpos() < 0.2 || first_gap_.getXpos() > 1.5) y_goal_ = 0.0;
-        ROS_INFO_STREAM("Tracking First Gap " << first_gap_.getXpos() << " " << first_gap_.getYpos());
-    } else {
-        y_goal_ = second_gap_.getYpos();
-        if(second_gap_.getXpos() < 0.2 || second_gap_.getXpos() > 1.5) y_goal_ = 0.0;
-        ROS_INFO_STREAM("Tracking Second Gap " << second_gap_.getXpos() << " " << second_gap_.getYpos());
     }
 
 }

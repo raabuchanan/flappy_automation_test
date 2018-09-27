@@ -260,7 +260,7 @@ def mainGame(movementInfo):
             if event.type == KEYDOWN and (event.key == K_DOWN):
                 playerVelY += deltaVel
                 #playerAccY += deltaAcc
-            if event.type == KEYDOWN and (event.key == K_SPACE):
+            if event.type == KEYDOWN and (event.key == K_LEFT):
                 pipeVelX += deltaVel
                 #playerAccX += deltaAcc
             if event.type == KEYDOWN and (event.key == K_RIGHT):

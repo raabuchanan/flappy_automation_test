@@ -12,9 +12,9 @@ PipeGapTracker::~PipeGapTracker() {
 
 double PipeGapTracker::reInitializeKalmanFilter(){
     x_pos_ = 3.5;
-    y_pos_ = 0.0;
-    x_var_ = 0.01;
-    y_var_ = 0.01;
+    y_pos_ = 1.0;
+    x_var_ = 0.1;
+    y_var_ = 0.1;
     initialized_ = false;
 }
 
@@ -51,10 +51,10 @@ void PipeGapTracker::measurementUpdate(double x_measurement, std::vector<double>
 
     // Variance based on resolution
     // Actual laser measuremnet noise is proportional to depth^2
-    double measurement_noise = x_measurement * sin(resolution) * x_measurement * sin(resolution) / 4.0;
+    double measurement_noise = x_measurement * sin(resolution) * x_measurement * sin(resolution);
 
     //Don't track the next gap too soon
-    if( x_measurement >= 1.5){
+    if( x_measurement >= 1.0){
         measurement_noise *=y_measurements.size()*y_measurements.size();
     }
 
