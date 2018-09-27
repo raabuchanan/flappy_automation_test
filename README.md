@@ -1,3 +1,14 @@
+# Autonomation Submission
+
+build with the following command:<br>
+
+```catkin_make --cmake-args -DCMAKE_BUILD_TYPE=Release```<br>
+
+or if using catkin-tools:<br>
+
+```catkin build --cmake-args -DCMAKE_BUILD_TYPE=Release```<br>
+
+
 # Flappy Bird Automation Game
 
 This repository contains the Flappy Bird game modified to be controlled with ROS.

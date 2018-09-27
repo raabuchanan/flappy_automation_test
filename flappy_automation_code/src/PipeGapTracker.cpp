@@ -12,7 +12,7 @@ PipeGapTracker::~PipeGapTracker() {
 
 double PipeGapTracker::reInitializeKalmanFilter(){
     x_pos_ = 3.5;
-    y_pos_ = 1.0;
+    y_pos_ = 0.0;
     x_var_ = 0.1;
     y_var_ = 0.1;
     initialized_ = false;
