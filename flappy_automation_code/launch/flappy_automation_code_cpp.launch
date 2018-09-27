@@ -3,7 +3,7 @@
 
   <node name="flappy_automation_code" pkg="flappy_automation_code" type="flappy_automation_code_node" output="screen">
   <param name="p_gain" type="double" value="1.0" />
-  <param name="d_gain" type="double" value="30.0" />
+  <param name="d_gain" type="double" value="50.0" />
   <param name="i_gain" type="double" value="0.0" />
   <param name="x_vel" type="double" value="0.5" />
   </node> 

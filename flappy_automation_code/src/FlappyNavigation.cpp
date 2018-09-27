@@ -38,7 +38,7 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
     }
 
     //TODO
-    double dt =  ros::Time::now().toSec() - last_vel_time_;
+    double dt = 30.0;//ros::Time::now().toSec() - last_vel_time_;
     last_vel_time_ = ros::Time::now().toSec();
 
     positionUpdate(0.0, msg->y * dt);
@@ -52,7 +52,7 @@ void FlappyNavigation::velCallback(const geometry_msgs::Vector3::ConstPtr& msg)
 
     if (y_goal_ == 0.0) y_cmd = (0.0 - msg->y) / dt; // zero y velocity
 
-    double desired_vel = 1 / abs(proportional_error_); //Move slower when further from goal
+    double desired_vel = x_vel_;// 1 / abs(proportional_error_); //Move slower when further from goal
     if(desired_vel > x_vel_) desired_vel = x_vel_;
     double x_cmd = (desired_vel - msg->x) / dt;
 
@@ -68,7 +68,7 @@ void FlappyNavigation::positionUpdate(double x_displacement, double y_displaceme
 
 void FlappyNavigation::laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-  int num_scans = (int)(abs(msg->angle_max - msg->angle_min)/msg->angle_increment) + 1;
+  int num_scans = (int)(fabs(msg->angle_max - msg->angle_min)/msg->angle_increment);
   std::vector<std::vector<double>> depth_line;
   for(int i = 0; i < num_scans; i++){
 
@@ -100,17 +100,17 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
     // TODO: Parametrize
     int num_points = depth_line.size();
     double num_inliers = (int)0.7*num_points;
-    int num_iterations = 5;
+    int num_iterations = 10;
     double inlier_thresh = 0.25;//m
     int best_inliers = 0;
 
     if(depth_line.size() > 0){
         for (int k=0; k < num_iterations; k++){
             int rand_idx = rand() % num_points; // sample with replacement
-            double x_query = depth_line[k][0];
+            double x_query = depth_line[rand_idx][0];
             int inliers = 0;
             for (int i=0; i < num_points; i++){
-                if (abs(depth_line[i][0] - x_query) < inlier_thresh) inliers++;
+                if (fabs(depth_line[i][0] - x_query) < inlier_thresh) inliers++;
             }
 
             if (inliers > best_inliers){
@@ -123,6 +123,8 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
     if(x_best == 0.0){
         ROS_WARN("Could not fit line");
         return;
+    } else {
+        ROS_INFO_STREAM("Line fit at " << x_best);
     }
 
     std::vector<double> y_gaps;
@@ -133,14 +135,14 @@ void FlappyNavigation::flappyControlCallback(const ros::TimerEvent&){
         if(x_best - point[0] > inlier_thresh) continue; //floor or ceiling
 
         if(point[0] - x_best > inlier_thresh){ // gap
-            // ROS_INFO_STREAM("Gap detected at " << point[0] << " " << point[1]);
+            ROS_INFO_STREAM("Gap detected at " << point[0] << " " << point[1]);
             y_gaps.push_back(point[1]);
         }
     }
 
     if(!first_gap_.getInitialization()){
         first_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
-    } else if (abs(x_best - first_gap_.getXpos()) > abs(x_best - second_gap_.getXpos()) ) {
+    } else if (fabs(x_best - first_gap_.getXpos()) > fabs(x_best - second_gap_.getXpos()) ) {
         second_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
     } else {
         first_gap_.measurementUpdate(x_best, y_gaps, angle_resolution_);
